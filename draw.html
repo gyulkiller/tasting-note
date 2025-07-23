@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>이미지 위에 그림 그리기</title>
+  <style>
+    html,body{margin:0;height:100%}
+    canvas{
+      touch-action:none;
+      display:block;
+      width:100%;
+      height:100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+    }
+    .background-image {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+    }
+    /* === 툴바 스타일 === */
+    .toolbar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 3;
+      background: rgba(255,255,255,0.8);
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: sans-serif;
+    }
+    .toolbar button {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- === 그리기 툴바 === -->
+  <div class="toolbar">
+    <input type="color" id="colorPicker" value="#111111" title="색 선택" />
+    <input type="range" id="brushSize" min="1" max="50" value="8" title="붓 크기" />
+    <button id="undoBtn" title="뒤로 가기">↶</button>
+    <button id="redoBtn" title="앞으로 가기">↷</button>
+    <button id="clearBtn" title="모두 지우기">🗑</button>
+  </div>
+  <img src="KakaoTalk_20250723_142159506.jpg" alt="배경 이미지" class="background-image">
+  <canvas id="c"></canvas>
+
+  <!-- ① CDN(EcmaScript Module)에서 라이브러리 로드  -->
+  <script type="module">
+    import { getStroke } from 'https://cdn.jsdelivr.net/npm/perfect-freehand@1.2.2/+esm';
+
+    /* ===== 캔버스 및 상태 변수 준비 ===== */
+    const canvas  = document.getElementById('c');
+    const ctx     = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const brushSizeInput = document.getElementById('brushSize');
+    const undoBtn  = document.getElementById('undoBtn');
+    const redoBtn  = document.getElementById('redoBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    resize();
+    window.addEventListener('resize', () => {
+      resize();
+      render();
+    });
+
+    let drawing = false;
+    let points  = [];
+    const strokes = [];          // 완료된 스트로크들
+    const undoneStrokes = [];    // redo를 위한 스택
+
+    let currentColor = colorPicker.value;
+    let currentSize  = Number(brushSizeInput.value);
+
+    /* ===== UI 이벤트 ===== */
+    colorPicker.addEventListener('input', (e) => {
+      currentColor = e.target.value;
+    });
+
+    brushSizeInput.addEventListener('input', (e) => {
+      currentSize = Number(e.target.value);
+    });
+
+    undoBtn.addEventListener('click', () => {
+      if (strokes.length) {
+        undoneStrokes.push(strokes.pop());
+        render();
+      }
+    });
+
+    redoBtn.addEventListener('click', () => {
+      if (undoneStrokes.length) {
+        strokes.push(undoneStrokes.pop());
+        render();
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      strokes.length = 0;
+      undoneStrokes.length = 0;
+      render();
+    });
+
+    /* ===== 포인터 이벤트로 입력 좌표 수집 ===== */
+    canvas.addEventListener('pointerdown', (e) => {
+      drawing = true;
+      points = [[e.offsetX, e.offsetY, e.pressure]];
+      // 새 스트로크를 시작하면 redo 스택 초기화
+      undoneStrokes.length = 0;
+      render();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drawing) return;
+      points.push([e.offsetX, e.offsetY, e.pressure]);
+      render();
+    });
+
+    canvas.addEventListener('pointerup', () => {
+      if (!drawing) return;
+      drawing = false;
+      // 현재 포인트 복사하여 저장
+      strokes.push({ points: [...points], color: currentColor, size: currentSize });
+      points = [];
+      render();
+    });
+
+    /* ===== 렌더링 함수 ===== */
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 저장된 스트로크 그리기
+      strokes.forEach(s => drawStroke(s.points, s.color, s.size));
+
+      // 현재 그리고 있는 스트로크 미리보기
+      if (drawing && points.length) {
+        drawStroke(points, currentColor, currentSize);
+      }
+    }
+
+    function drawStroke(pts, color, size) {
+      const stroke = getStroke(pts, { size, thinning: 0.6 });
+      if (!stroke.length) return;
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(stroke[0][0], stroke[0][1]);
+      for (let i = 1; i < stroke.length; i++) {
+        const [x, y] = stroke[i];
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+  </script>
+</body>
+</html>
