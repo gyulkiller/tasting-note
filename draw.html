@@ -15,6 +15,7 @@
       top: 0;
       left: 0;
       z-index: 2;
+      box-sizing: border-box;
     }
     .background-image {
       position: absolute;
@@ -41,6 +42,28 @@
       font-family: sans-serif;
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    
+    /* 데스크탑 최적화 */
+    @media (min-width: 769px) {
+      .toolbar {
+        bottom: 30px;
+        padding: 15px 20px;
+        gap: 15px;
+      }
+      .toolbar button {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+      }
+      .toolbar input[type="color"] {
+        width: 50px;
+        height: 50px;
+      }
+      .toolbar input[type="range"] {
+        width: 100px;
+        height: 50px;
+      }
     }
     .toolbar button {
       cursor: pointer;
@@ -154,6 +177,7 @@
     <button id="undoBtn" title="뒤로 가기">↶</button>
     <button id="redoBtn" title="앞으로 가기">↷</button>
     <button id="clearBtn" title="모두 지우기">🗑</button>
+    <button id="saveBtn" title="저장">💾</button>
   </div>
   <img src="KakaoTalk_20250723_142159506.jpg" alt="배경 이미지" class="background-image">
   <canvas id="c"></canvas>
@@ -172,6 +196,7 @@
     const undoBtn  = document.getElementById('undoBtn');
     const redoBtn  = document.getElementById('redoBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const saveBtn  = document.getElementById('saveBtn');
 
     resize();
     window.addEventListener('resize', () => {
@@ -227,6 +252,27 @@
       strokes.length = 0;
       undoneStrokes.length = 0;
       render();
+    });
+
+    /* ===== 저장 기능 ===== */
+    saveBtn.addEventListener('click', () => {
+      // 오프스크린 캔버스 생성
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width  = canvas.width;
+      exportCanvas.height = canvas.height;
+      const ectx = exportCanvas.getContext('2d');
+
+      // 배경 이미지 그리기 (동일 비율로 스케일)
+      const backgroundImg = document.querySelector('.background-image');
+      ectx.drawImage(backgroundImg, 0, 0, exportCanvas.width, exportCanvas.height);
+      // 그려진 스트로크 캔버스 합성
+      ectx.drawImage(canvas, 0, 0);
+
+      // 다운로드 링크 생성
+      const link = document.createElement('a');
+      link.href = exportCanvas.toDataURL('image/png');
+      link.download = 'drawing.png';
+      link.click();
     });
 
     /* ===== 포인터 이벤트로 입력 좌표 수집 ===== */
@@ -299,8 +345,16 @@
     }
 
     function resize() {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
+      // 데스크탑에서는 툴바 공간을 고려하여 캔버스 크기 조정
+      const isDesktop = window.innerWidth >= 769;
+      const toolbarHeight = isDesktop ? 80 : 70; // 툴바 + 여백
+      
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight - toolbarHeight;
+      
+      // 캔버스 위치를 위로 조정하여 툴바 공간 확보
+      canvas.style.top = '0px';
+      canvas.style.height = `${canvas.height}px`;
     }
   </script>
 </body>
